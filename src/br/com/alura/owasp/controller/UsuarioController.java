@@ -6,6 +6,7 @@ import java.io.IOException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
+import br.com.alura.owasp.retrofit.GoogleWebClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,9 @@ public class UsuarioController {
 
 	@Autowired
 	private UsuarioDao dao;
+
+	@Autowired
+	private GoogleWebClient cliente;
 
 	@RequestMapping("/usuario")
 	public String usuario(Model model) {
@@ -56,18 +60,31 @@ public class UsuarioController {
 
 	@RequestMapping(value = "/login", method = RequestMethod.POST)
 	public String login(@ModelAttribute("usuario") Usuario usuario,
-			RedirectAttributes redirect, Model model, HttpSession session) {
+			RedirectAttributes redirect, Model model, HttpSession session, HttpServletRequest resquest) throws IOException {
+
+		String recaptcha = resquest.getParameter("g-recaptcha-response");
+		boolean verificaRecaptcha = cliente.verifica(recaptcha);
+		if(verificaRecaptcha){
+			return procuraUsuario(usuario, redirect, model, session);
+		}
+
+		redirect.addFlashAttribute("mensagem", "Por favor, comprove que você é humano!");
+		return "redirect:/usuario";
+
+
+	}
+
+	private String procuraUsuario(Usuario usuario, RedirectAttributes redirect, Model model, HttpSession session) {
 
 		Usuario usuarioRetornado = dao.procuraUsuario(usuario);
 		model.addAttribute("usuario", usuarioRetornado);
-		if (usuarioRetornado == null) {
+		if(usuarioRetornado == null) {
 			redirect.addFlashAttribute("mensagem", "Usuário não encontrado");
 			return "redirect:/usuario";
 		}
 
 		session.setAttribute("usuario", usuarioRetornado);
 		return "usuarioLogado";
-
 	}
 
 	@RequestMapping("/logout")
